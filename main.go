@@ -99,5 +99,5 @@ func main() {
 	} else if submission.Body != "" {
 		str += submission.Body
 	}
-	fmt.Printf(strings.Trim(str, " \n"))
+	fmt.Printf("%s\n", strings.Trim(str, " \n"))
 }
