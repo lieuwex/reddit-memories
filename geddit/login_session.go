@@ -364,7 +364,7 @@ func (s LoginSession) Listing(username, listing string, sort PopularitySort, aft
 	if after != "" {
 		values.Set("after", after)
 	}
-	url := fmt.Sprintf("https://www.reddit.com/user/%s/%s.json?%s", username, listing, values.Encode())
+	url := fmt.Sprintf("https://www.reddit.com/user/%s/%s.json?%s&limit=100", username, listing, values.Encode())
 	req := &request{
 		url:       url,
 		cookie:    s.cookie,
