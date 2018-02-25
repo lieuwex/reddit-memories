@@ -20,23 +20,38 @@ package main
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
 	"reddit-memories/geddit"
 )
 
+var today = trunc(time.Now().UTC())
+
 func trunc(t time.Time) time.Time {
 	return t.Truncate(24 * time.Hour)
 }
 
 func dateMonthMatch(a time.Time, b time.Time) bool {
-	return a.Month() <= b.Month() && a.Day() <= b.Day()
+	return a.Month() == b.Month() && a.Day() == b.Day()
 }
 
-func fetchAllSubmissions(session *geddit.LoginSession) ([]*geddit.Submission, error) {
-	res := make([]*geddit.Submission, 0)
+func getSubmissionDate(submission *geddit.Submission) time.Time {
+	time := time.Unix(int64(submission.DateCreated), 0)
+	return trunc(time)
+}
+
+func findSubmission(submissions []*geddit.Submission) *geddit.Submission {
+	for _, submission := range submissions {
+		date := getSubmissionDate(submission)
+		if date.Year() != today.Year() && dateMonthMatch(date, today) {
+			return submission
+		}
+	}
+	return nil
+}
+
+func fetchSubmission(session *geddit.LoginSession) (*geddit.Submission, error) {
 	after := ""
 
 	for {
@@ -50,36 +65,28 @@ func fetchAllSubmissions(session *geddit.LoginSession) ([]*geddit.Submission, er
 		}
 
 		after = fetch[len(fetch)-1].FullID
-		res = append(res, fetch...)
+		submission := findSubmission(fetch)
+		if submission != nil {
+			return submission, nil
+		}
 	}
 
-	return res, nil
+	return nil, nil
 }
 
 // Please don't handle errors this way.
 func main() {
 	// Login to reddit
-	session, _ := geddit.NewLoginSession(
+	session, err := geddit.NewLoginSession(
 		"xxxx",
 		"xxxx",
 		"reddit-memories v1",
 	)
-
-	submissions, _ := fetchAllSubmissions(session)
-	count := len(submissions)
-
-	today := trunc(time.Now().UTC())
-	index := sort.Search(count, func(i int) bool {
-		submission := submissions[i]
-		time := time.Unix(int64(submission.DateCreated), 0)
-		date := trunc(time)
-		return date.Year() != today.Year() && dateMonthMatch(date, today)
-	})
-	if index == count {
-		return
+	if err != nil {
+		panic(err)
 	}
 
-	submission := submissions[index]
+	submission, _ := fetchSubmission(session)
 	submissionTime := time.Unix(int64(submission.DateCreated), 0)
 	yearDiff := today.Year() - submissionTime.Year()
 
@@ -88,7 +95,7 @@ func main() {
 		plural = ""
 	}
 
-	str := fmt.Sprintf("%d year%s today:\n", yearDiff, plural)
+	str := fmt.Sprintf("Today %d year%s ago:\n", yearDiff, plural)
 	if submission.Title != "" {
 		str += submission.Title + "\n"
 	}
@@ -99,5 +106,5 @@ func main() {
 	} else if submission.Body != "" {
 		str += submission.Body
 	}
-	fmt.Printf("%s\n", strings.Trim(str, " \n"))
+	fmt.Printf("%s\t(%s)\n", strings.Trim(str, " \n"), submission.FullPermalink())
 }
