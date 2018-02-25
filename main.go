@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"./geddit"
+	"reddit-memories/geddit"
 )
 
 func trunc(t time.Time) time.Time {
@@ -33,6 +33,27 @@ func trunc(t time.Time) time.Time {
 
 func dateMonthMatch(a time.Time, b time.Time) bool {
 	return a.Month() <= b.Month() && a.Day() <= b.Day()
+}
+
+func fetchAllSubmissions(session *geddit.LoginSession) ([]*geddit.Submission, error) {
+	res := make([]*geddit.Submission, 0)
+	after := ""
+
+	for {
+		fetch, err := session.MyOverview(geddit.NewSubmissions, after)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(fetch) == 0 {
+			break
+		}
+
+		after = fetch[len(fetch)-1].FullID
+		res = append(res, fetch...)
+	}
+
+	return res, nil
 }
 
 // Please don't handle errors this way.
@@ -44,7 +65,7 @@ func main() {
 		"reddit-memories v1",
 	)
 
-	submissions, _ := session.MyOverview(geddit.NewSubmissions, "")
+	submissions, _ := fetchAllSubmissions(session)
 	count := len(submissions)
 
 	today := trunc(time.Now().UTC())
